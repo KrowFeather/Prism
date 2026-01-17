@@ -13,7 +13,7 @@
     </div>
     
     <!-- 课程类型 Tab -->
-    <el-tabs v-model="activeTab" @tab-change="handleTabChange" class="course-tabs">
+    <el-tabs v-if="enabledTabs.length > 0" v-model="activeTab" @tab-change="handleTabChange" class="course-tabs">
       <el-tab-pane
         v-for="tab in enabledTabs"
         :key="tab.code"
@@ -21,6 +21,16 @@
         :name="tab.code"
       ></el-tab-pane>
     </el-tabs>
+    
+    <!-- 如果没有 Tab，显示提示 -->
+    <div v-else class="course-tabs">
+      <el-alert
+        title="未找到可用的课程类型，请重新登录并选择批次"
+        type="warning"
+        :closable="false"
+        show-icon
+      />
+    </div>
     
     <!-- 搜索框 -->
     <div class="search-container">
@@ -89,6 +99,14 @@
           </template>
         </el-table-column>
       </el-table>
+    </div>
+    
+    <!-- 空状态 -->
+    <div v-else class="courses-container">
+      <el-empty 
+        :description="isLoadingCourses ? '加载中...' : '暂无课程数据，请尝试搜索或切换课程类型'"
+        :image-size="120"
+      />
     </div>
 
   </div>
@@ -490,5 +508,31 @@ function setDefaultTabs() {
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+</style>
+
+<style>
+/* 暗色模式样式 - 纯黑色系 */
+.dark-theme .page-title {
+  background: linear-gradient(135deg, #ffffff, #e0e0e0);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dark-theme .course-tabs {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+}
+
+.dark-theme .search-container {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+}
+
+.dark-theme .courses-container {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
 }
 </style>

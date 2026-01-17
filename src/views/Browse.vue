@@ -897,4 +897,37 @@ onUnmounted(() => {
 .terminal-content::-webkit-scrollbar-thumb:hover {
   background: #4e4e4e;
 }
+
+</style>
+
+<style>
+/* 暗色模式样式 - 纯黑色系 */
+.dark-theme .page-title {
+  background: linear-gradient(135deg, #ffffff, #e0e0e0);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dark-theme .empty-state {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+}
+
+.dark-theme .empty-text {
+  color: #d0d0d0 !important;
+}
+
+.dark-theme .empty-subtext {
+  color: #a0a0a0 !important;
+}
+
+.dark-theme .queue-container {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+}
+
+.dark-theme .queue-count {
+  color: #ffffff !important;
+}
 </style>

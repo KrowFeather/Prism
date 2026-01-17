@@ -7,9 +7,13 @@ contextBridge.exposeInMainWorld('windowControls', {
   close: () => ipcRenderer.invoke('window-close'),
   onMaximized: (callback) => ipcRenderer.on('window-maximized', callback),
   onUnmaximized: (callback) => ipcRenderer.on('window-unmaximized', callback),
+  onWindowWillClose: (callback) => ipcRenderer.on('window-will-close', callback),
   removeMaximizedListeners: () => {
     ipcRenderer.removeAllListeners('window-maximized')
     ipcRenderer.removeAllListeners('window-unmaximized')
+  },
+  removeWindowWillCloseListener: () => {
+    ipcRenderer.removeAllListeners('window-will-close')
   }
 })
 

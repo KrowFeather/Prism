@@ -28,6 +28,20 @@
         </el-form>
 
         <el-divider content-position="left">
+          <h3 class="section-title">外观设置</h3>
+        </el-divider>
+        <el-form>
+          <el-form-item label="暗色模式">
+            <el-switch
+              v-model="isDarkMode"
+              @change="handleThemeChange"
+              active-text="开启"
+              inactive-text="关闭"
+            />
+          </el-form-item>
+        </el-form>
+
+        <el-divider content-position="left">
           <h3 class="section-title">操作</h3>
         </el-divider>
         <el-button type="danger" @click="handleLogout">退出登录</el-button>
@@ -41,6 +55,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { connectionStatus } from '../composables/useConnectionStatus'
+import { isDarkMode, setTheme } from '../composables/useTheme'
 
 const router = useRouter()
 const loginInfo = ref<any>(null)
@@ -56,11 +71,19 @@ onMounted(() => {
   if (storedApiUrl) {
     apiUrl.value = storedApiUrl
   }
+  
+  // 初始化暗色模式状态（从 useTheme 中读取）
+  // isDarkMode 是响应式的，会自动同步
 })
 
 function saveSettings() {
   localStorage.setItem('apiUrl', apiUrl.value)
   ElMessage.success('设置已保存')
+}
+
+function handleThemeChange(value: boolean) {
+  setTheme(value)
+  ElMessage.success(value ? '已切换到暗色模式' : '已切换到亮色模式')
 }
 
 async function handleLogout() {
@@ -125,6 +148,30 @@ async function handleLogout() {
   font-size: 14px;
   color: #64748b;
   font-weight: 500;
+}
+
+</style>
+
+<style>
+/* 暗色模式样式 - 纯黑色系 */
+.dark-theme .page-title {
+  background: linear-gradient(135deg, #ffffff, #e0e0e0);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dark-theme .settings-card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+}
+
+.dark-theme .section-title {
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .info-label {
+  color: #d0d0d0 !important;
 }
 </style>
 

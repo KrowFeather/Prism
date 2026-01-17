@@ -70,6 +70,16 @@ app.whenReady().then(() => {
     win.on('unmaximize', () => {
         win.webContents.send('window-unmaximized');
     });
+
+    // 监听窗口关闭事件，通知前端清除登录状态
+    win.on('close', (event) => {
+        // 只有在真正关闭窗口时才发送消息
+        // 发送关闭事件给前端，让前端清理登录状态
+        if (!win.isDestroyed()) {
+            win.webContents.send('window-will-close');
+        }
+        // 不阻止关闭，正常关闭窗口
+    });
 });
 
 app.on('window-all-closed', () => {

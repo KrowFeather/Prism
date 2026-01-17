@@ -650,5 +650,44 @@ onMounted(() => {
     font-size: 20px;
   }
 }
+
+</style>
+
+<style>
+/* 暗色模式样式 - 纯黑色系 */
+.dark-theme .account-card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+}
+
+.dark-theme .account-card:hover {
+  border-color: #3a3a3a;
+  box-shadow: 0 8px 24px rgba(255, 255, 255, 0.1);
+}
+
+.dark-theme .account-username {
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .account-time {
+  color: #a0a0a0 !important;
+}
+
+.dark-theme .login-card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+}
+
+.dark-theme .section-title {
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .empty-text {
+  color: #d0d0d0 !important;
+}
+
+.dark-theme .empty-subtext {
+  color: #a0a0a0 !important;
+}
 </style>
 

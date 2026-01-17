@@ -12,7 +12,9 @@ declare global {
       close: () => void
       onMaximized: (callback: () => void) => void
       onUnmaximized: (callback: () => void) => void
+      onWindowWillClose: (callback: () => void) => void
       removeMaximizedListeners: () => void
+      removeWindowWillCloseListener: () => void
     }
   }
 }
@@ -59,6 +61,21 @@ watch(isLoggedIn, (newVal) => {
 
 const isMaximized = ref(false)
 
+// 清除登录状态
+function clearLoginState() {
+  // 清除登录信息
+  localStorage.removeItem('loginInfo')
+  localStorage.removeItem('selectedBatchCode')
+  localStorage.removeItem('enabledTabs')
+  localStorage.removeItem('tabNames')
+  
+  // 清除连接状态
+  connectionStatus.value = 'disconnected'
+  
+  // 清除抢课任务状态（如果有的话）
+  // 注意：这里只是清除前端状态，后端任务会继续运行直到完成或手动停止
+}
+
 onMounted(() => {
   initConnectionStatus()
   checkMaximizedState()
@@ -75,13 +92,30 @@ onMounted(() => {
         isMaximized.value = false
       })
     }
+    
+    // 监听窗口关闭事件，清除登录状态
+    // 注意：只在真正关闭窗口时清除，不要在其他时候触发
+    if (typeof window.windowControls.onWindowWillClose === 'function') {
+      window.windowControls.onWindowWillClose(() => {
+        console.log('窗口即将关闭，清除登录状态')
+        // 延迟清除，确保窗口已经关闭
+        setTimeout(() => {
+          clearLoginState()
+        }, 100)
+      })
+    }
   }
 })
 
 // 组件卸载时清理监听器
 onUnmounted(() => {
-  if (window.windowControls && typeof window.windowControls.removeMaximizedListeners === 'function') {
-    window.windowControls.removeMaximizedListeners()
+  if (window.windowControls) {
+    if (typeof window.windowControls.removeMaximizedListeners === 'function') {
+      window.windowControls.removeMaximizedListeners()
+    }
+    if (typeof window.windowControls.removeWindowWillCloseListener === 'function') {
+      window.windowControls.removeWindowWillCloseListener()
+    }
   }
 })
 
@@ -118,7 +152,7 @@ function onClose() {
 <template>
   <div class="app-container">
     <div class="titlebar">
-      <div class="title">Hexagon</div>
+      <div class="title">Prism</div>
       <div class="title-controls">
         <button class="control-btn" type="button" @click="onMinimize" title="最小化">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -152,7 +186,7 @@ function onClose() {
       </div>
       
       <!-- 主页面（已登录） -->
-      <div v-else-if="isLoggedIn" class="main-layout">
+      <div v-else class="main-layout">
         <nav class="sidebar">
           <router-link to="/select-class" class="nav-item" active-class="active">
             <span class="nav-icon">📚</span>
@@ -526,5 +560,415 @@ function onClose() {
   50% {
     opacity: 0.5;
   }
+}
+
+</style>
+
+<style>
+/* 暗色模式全局样式 - 纯黑色系 */
+.dark-theme .app-container {
+  background: linear-gradient(135deg,
+      #000000 0%,
+      #0a0a0a 20%,
+      #111111 40%,
+      #0a0a0a 60%,
+      #000000 80%,
+      #000000 100%);
+  border: 1px solid #1a1a1a;
+}
+
+.dark-theme .titlebar {
+  background: #0a0a0a;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.dark-theme .titlebar::after {
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.05) 0%,
+      rgba(255, 255, 255, 0.08) 50%,
+      rgba(255, 255, 255, 0.05) 100%);
+}
+
+.dark-theme .title {
+  background: linear-gradient(90deg, #ffffff, #e0e0e0);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dark-theme .sidebar {
+  background: #0a0a0a;
+  border-right: 1px solid #1a1a1a;
+}
+
+.dark-theme .nav-item {
+  color: #d0d0d0 !important;
+}
+
+.dark-theme .nav-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff !important;
+}
+
+.dark-theme .nav-item.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff !important;
+  border-left-color: #ffffff;
+}
+
+.dark-theme .control-btn {
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .control-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dark-theme .control-btn.close:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.dark-theme .status {
+  border-top: 1px solid #1a1a1a;
+  color: #d0d0d0 !important;
+}
+
+.dark-theme .login-card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+}
+
+.dark-theme .login-subtitle {
+  color: #a0a0a0 !important;
+}
+
+.dark-theme .form-label {
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .form-input {
+  background: #0f0f0f;
+  border: 1px solid #2a2a2a;
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .form-input:focus {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+  background: #1a1a1a;
+}
+
+.dark-theme .form-input::placeholder {
+  color: #666666 !important;
+}
+
+/* Element Plus 暗色模式适配 - 纯黑色系 */
+.dark-theme {
+  --el-bg-color: #1a1a1a;
+  --el-bg-color-page: #000000;
+  --el-text-color-primary: #e0e0e0;
+  --el-text-color-regular: #d0d0d0;
+  --el-text-color-secondary: #a0a0a0;
+  --el-text-color-placeholder: #666666;
+  --el-border-color: #2a2a2a;
+  --el-border-color-light: #1a1a1a;
+  --el-border-color-lighter: #0f0f0f;
+  --el-border-color-extra-light: #0a0a0a;
+  --el-fill-color: #1a1a1a;
+  --el-fill-color-light: #0f0f0f;
+  --el-fill-color-lighter: #0a0a0a;
+  --el-fill-color-extra-light: #050505;
+  --el-fill-color-dark: #2a2a2a;
+  --el-fill-color-darker: #3a3a3a;
+  --el-fill-color-blank: transparent;
+  --el-mask-color: rgba(0, 0, 0, 0.8);
+  --el-mask-color-extra-light: rgba(0, 0, 0, 0.3);
+}
+
+.dark-theme .el-card {
+  background-color: #1a1a1a !important;
+  border-color: #2a2a2a !important;
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-table {
+  background-color: #1a1a1a !important;
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-table th {
+  background-color: #0f0f0f !important;
+  color: #d0d0d0 !important;
+  border-color: #2a2a2a !important;
+}
+
+.dark-theme .el-table td {
+  background-color: #1a1a1a !important;
+  color: #e0e0e0 !important;
+  border-color: #2a2a2a !important;
+}
+
+.dark-theme .el-table--striped .el-table__body tr.el-table__row--striped td {
+  background-color: #0f0f0f !important;
+}
+
+.dark-theme .el-table tr:hover > td {
+  background-color: #2a2a2a !important;
+}
+
+.dark-theme .el-input__wrapper {
+  background-color: #0f0f0f !important;
+  box-shadow: 0 0 0 1px #2a2a2a inset !important;
+}
+
+.dark-theme .el-input__inner {
+  background-color: transparent !important;
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-input__inner::placeholder {
+  color: #666666 !important;
+}
+
+.dark-theme .el-input.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 1px #ffffff inset !important;
+}
+
+.dark-theme .el-textarea__inner {
+  background-color: #0f0f0f !important;
+  border-color: #2a2a2a !important;
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-textarea__inner:focus {
+  border-color: #ffffff !important;
+}
+
+.dark-theme .el-tabs__header {
+  background-color: #1a1a1a !important;
+  border-color: #2a2a2a !important;
+}
+
+.dark-theme .el-tabs__item {
+  color: #a0a0a0 !important;
+}
+
+.dark-theme .el-tabs__item:hover {
+  color: #d0d0d0 !important;
+}
+
+.dark-theme .el-tabs__item.is-active {
+  color: #ffffff !important;
+}
+
+.dark-theme .el-tabs__active-bar {
+  background-color: #ffffff !important;
+}
+
+.dark-theme .el-tabs__nav-wrap::after {
+  background-color: #2a2a2a !important;
+}
+
+.dark-theme .el-button {
+  color: #e0e0e0 !important;
+  background-color: #1a1a1a !important;
+  border-color: #2a2a2a !important;
+}
+
+.dark-theme .el-button:hover {
+  background-color: #2a2a2a !important;
+  border-color: #3a3a3a !important;
+}
+
+.dark-theme .el-button--primary {
+  background-color: #ffffff !important;
+  border-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+.dark-theme .el-button--primary:hover {
+  background-color: #e0e0e0 !important;
+  border-color: #e0e0e0 !important;
+}
+
+.dark-theme .el-button--danger {
+  background-color: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+.dark-theme .el-button--danger:hover {
+  background-color: #b91c1c !important;
+  border-color: #b91c1c !important;
+}
+
+.dark-theme .el-button--warning {
+  background-color: #f59e0b !important;
+  border-color: #f59e0b !important;
+  color: #000000 !important;
+}
+
+.dark-theme .el-button--info {
+  background-color: #1a1a1a !important;
+  border-color: #2a2a2a !important;
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-button--text {
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-button--text:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark-theme .el-tag {
+  background-color: #2a2a2a !important;
+  border-color: #3a3a3a !important;
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-tag--success {
+  background-color: #22c55e !important;
+  border-color: #22c55e !important;
+  color: #000000 !important;
+}
+
+.dark-theme .el-tag--danger {
+  background-color: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+.dark-theme .el-tag--warning {
+  background-color: #f59e0b !important;
+  border-color: #f59e0b !important;
+  color: #000000 !important;
+}
+
+.dark-theme .el-tag--info {
+  background-color: #3a3a3a !important;
+  border-color: #4a4a4a !important;
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-empty {
+  color: #a0a0a0 !important;
+}
+
+.dark-theme .el-empty__description {
+  color: #a0a0a0 !important;
+}
+
+.dark-theme .el-divider {
+  border-color: #2a2a2a !important;
+}
+
+.dark-theme .el-divider__text {
+  background-color: #1a1a1a !important;
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-switch__core {
+  background-color: #2a2a2a !important;
+}
+
+.dark-theme .el-switch.is-checked .el-switch__core {
+  background-color: #ffffff !important;
+}
+
+.dark-theme .el-form-item__label {
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-select {
+  --el-select-input-color: #e0e0e0;
+  --el-select-multiple-input-color: #e0e0e0;
+  --el-select-input-focus-border-color: #ffffff;
+}
+
+.dark-theme .el-select .el-input__wrapper {
+  background-color: #0f0f0f !important;
+  box-shadow: 0 0 0 1px #2a2a2a inset !important;
+}
+
+.dark-theme .el-select .el-input.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 1px #ffffff inset !important;
+}
+
+.dark-theme .el-select-dropdown {
+  background-color: #1a1a1a !important;
+  border-color: #2a2a2a !important;
+}
+
+.dark-theme .el-select-dropdown__item {
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-select-dropdown__item:hover {
+  background-color: #2a2a2a !important;
+}
+
+.dark-theme .el-select-dropdown__item.selected {
+  background-color: #3a3a3a !important;
+  color: #ffffff !important;
+}
+
+.dark-theme .el-dialog {
+  background-color: #1a1a1a !important;
+  border: 1px solid #2a2a2a !important;
+}
+
+.dark-theme .el-dialog__header {
+  border-bottom: 1px solid #2a2a2a !important;
+}
+
+.dark-theme .el-dialog__title {
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-dialog__body {
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-message-box {
+  background-color: #1a1a1a !important;
+  border: 1px solid #2a2a2a !important;
+}
+
+.dark-theme .el-message-box__title {
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-message-box__message {
+  color: #d0d0d0 !important;
+}
+
+.dark-theme .el-loading-mask {
+  background-color: rgba(0, 0, 0, 0.8) !important;
+}
+
+.dark-theme .el-pagination {
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-pagination button {
+  background-color: #1a1a1a !important;
+  color: #e0e0e0 !important;
+  border-color: #2a2a2a !important;
+}
+
+.dark-theme .el-pagination button:hover {
+  background-color: #2a2a2a !important;
+}
+
+.dark-theme .el-pagination .el-pager li {
+  background-color: #1a1a1a !important;
+  color: #e0e0e0 !important;
+}
+
+.dark-theme .el-pagination .el-pager li.is-active {
+  background-color: #ffffff !important;
+  color: #000000 !important;
 }
 </style>
