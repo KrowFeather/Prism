@@ -325,7 +325,7 @@ async function handleStartGrabAll() {
     try {
       // 检查该课程是否已经在已选课程列表中（使用最新数据）
       if (isCourseSelected(course.teachingClassId)) {
-        addLog(`[${course.courseName}] ⏭️ 该课程已在已选课程中，跳过`, 'info')
+        addLog(`[${course.courseName}] 该课程已在已选课程中，跳过`, 'info')
         continue
       }
       
@@ -333,7 +333,7 @@ async function handleStartGrabAll() {
       const existingTask = findTaskByTeachingClassId(course.teachingClassId)
       if (existingTask && existingTask.status === 'running') {
         // 正在运行中，跳过
-        addLog(`[${course.courseName}] ⏭️ 该课程正在抢课中，跳过`, 'info')
+        addLog(`[${course.courseName}] 该课程正在抢课中，跳过`, 'info')
         continue
       }
       
@@ -386,12 +386,12 @@ async function handleStartGrabAll() {
 
   if (successCount > 0) {
     ElMessage.success(`已启动 ${successCount} 个抢课任务`)
-    addLog(`✅ 已成功启动 ${successCount} 个抢课任务`, 'success')
+    addLog(`已成功启动 ${successCount} 个抢课任务`, 'success')
     startTaskStatusPolling()
   }
   if (failCount > 0) {
     ElMessage.warning(`有 ${failCount} 个任务启动失败`)
-    addLog(`⚠️ 有 ${failCount} 个任务启动失败`, 'warning')
+    addLog(`有 ${failCount} 个任务启动失败`, 'warning')
   }
 }
 
@@ -437,7 +437,7 @@ async function handleStopAllGrab() {
       }
       
       ElMessage.success(`已停止 ${stopCount} 个抢课任务`)
-      addLog(`⏸️ 已停止 ${stopCount} 个抢课任务`, 'warning')
+      addLog(`已停止 ${stopCount} 个抢课任务`, 'warning')
       // 刷新任务状态
       await loadTaskStatus()
     }
@@ -517,7 +517,7 @@ async function loadTaskStatus() {
           // 新任务启动
           const course = courseQueue.value.find(c => c.teachingClassId === newTask.teaching_class_id)
           if (course) {
-            addLog(`[${course.courseName}] 🚀 抢课任务已启动 (ID: ${taskId.substring(0, 8)}...)`, 'info')
+            addLog(`[${course.courseName}] 抢课任务已启动 (ID: ${taskId.substring(0, 8)}...)`, 'info')
           }
         } else {
           // 状态变化
@@ -526,14 +526,14 @@ async function loadTaskStatus() {
             const courseName = course ? course.courseName : newTask.teaching_class_id
             
             if (newTask.status === 'success') {
-              addLog(`[${courseName}] ✅ 选课成功！`, 'success')
+              addLog(`[${courseName}] 选课成功！`, 'success')
               // 选课成功后，立即刷新已选课程列表，更新状态显示
               loadSelectedCourses()
             } else if (newTask.status === 'stopped') {
-              addLog(`[${courseName}] ⏸️ 抢课任务已停止 (尝试次数: ${newTask.count})`, 'warning')
+              addLog(`[${courseName}] 抢课任务已停止 (尝试次数: ${newTask.count})`, 'warning')
             } else if (oldTask.status === 'stopped' && newTask.status === 'running') {
               // 从停止状态重新启动
-              addLog(`[${courseName}] 🔄 抢课任务已重新启动`, 'info')
+              addLog(`[${courseName}] 抢课任务已重新启动`, 'info')
             }
           }
           
@@ -548,12 +548,12 @@ async function loadTaskStatus() {
             if (newTask.last_result) {
               // 根据结果消息判断类型
               if (newTask.last_result.includes('成功') || newTask.last_result.includes('选课成功')) {
-                resultMsg = `✅ ${newTask.last_result}`
+                resultMsg = `${newTask.last_result}`
                 isSuccess = true
               } else if (newTask.last_result.includes('过期') || newTask.last_result.includes('登录')) {
-                resultMsg = `⚠️ ${newTask.last_result}`
+                resultMsg = `${newTask.last_result}`
               } else if (newTask.last_result.includes('失败') || newTask.last_result.includes('错误')) {
-                resultMsg = `❌ ${newTask.last_result}`
+                resultMsg = `${newTask.last_result}`
               } else {
                 resultMsg = newTask.last_result
               }
@@ -561,10 +561,10 @@ async function loadTaskStatus() {
             
             // 记录每次轮询结果
             addLog(
-              `[${courseName}] 🔄 第 ${newTask.count} 次尝试: ${resultMsg || '正在尝试选课...'}`,
-              resultMsg.includes('✅') ? 'success' : 
-              resultMsg.includes('❌') || resultMsg.includes('失败') ? 'error' :
-              resultMsg.includes('⚠️') ? 'warning' : 'info'
+              `[${courseName}] 第 ${newTask.count} 次尝试: ${resultMsg || '正在尝试选课...'}`,
+              resultMsg.includes('成功') ? 'success' : 
+              resultMsg.includes('失败') || resultMsg.includes('错误') ? 'error' :
+              resultMsg.includes('过期') || resultMsg.includes('登录') ? 'warning' : 'info'
             )
             
             // 如果检测到选课成功，刷新已选课程列表
@@ -582,15 +582,15 @@ async function loadTaskStatus() {
             if (newTask.last_result && newTask.last_result !== oldTask.last_result) {
               let resultMsg = newTask.last_result
               if (resultMsg.includes('成功')) {
-                resultMsg = `✅ ${resultMsg}`
+                resultMsg = `${resultMsg}`
               } else if (resultMsg.includes('失败') || resultMsg.includes('错误')) {
-                resultMsg = `❌ ${resultMsg}`
+                resultMsg = `${resultMsg}`
               }
               
               addLog(
                 `[${courseName}] 结果更新: ${resultMsg}`,
-                resultMsg.includes('✅') ? 'success' : 
-                resultMsg.includes('❌') ? 'error' : 'info'
+                resultMsg.includes('成功') ? 'success' : 
+                resultMsg.includes('失败') || resultMsg.includes('错误') ? 'error' : 'info'
               )
             }
           }
@@ -601,7 +601,7 @@ async function loadTaskStatus() {
     }
   } catch (error) {
     console.error('加载任务状态失败', error)
-    addLog('❌ 加载任务状态失败', 'error')
+    addLog('加载任务状态失败', 'error')
   }
 }
 
@@ -653,7 +653,7 @@ const hasRunningTasks = computed(() => {
 // 页面加载时初始化
 onMounted(() => {
   initQueue()
-  addLog('🚀 抢课系统已启动', 'info')
+  addLog('抢课系统已启动', 'info')
   loadSelectedCourses()  // 加载已选课程列表
   loadTaskStatus()
   startTaskStatusPolling()

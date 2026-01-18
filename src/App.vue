@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { connectionStatus, initConnectionStatus } from './composables/useConnectionStatus'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { Refresh, Document, Search, List, Setting } from '@element-plus/icons-vue'
 
 declare global {
   interface Window {
@@ -279,19 +279,19 @@ function onClose() {
       <div v-else class="main-layout">
         <nav class="sidebar">
           <router-link to="/select-class" class="nav-item" active-class="active">
-            <span class="nav-icon">📚</span>
+            <el-icon class="nav-icon"><Document /></el-icon>
             <span class="nav-text">开始选课</span>
           </router-link>
           <router-link to="/browse" class="nav-item" active-class="active">
-            <span class="nav-icon">🔍</span>
+            <el-icon class="nav-icon"><Search /></el-icon>
             <span class="nav-text">抢课</span>
           </router-link>
           <router-link to="/selected-courses" class="nav-item" active-class="active">
-            <span class="nav-icon">📋</span>
+            <el-icon class="nav-icon"><List /></el-icon>
             <span class="nav-text">已选课程</span>
           </router-link>
           <router-link to="/settings" class="nav-item" active-class="active">
-            <span class="nav-icon">⚙️</span>
+            <el-icon class="nav-icon"><Setting /></el-icon>
             <span class="nav-text">设置</span>
           </router-link>
           <div class="status" :class="statusClass">
