@@ -284,7 +284,7 @@ function onClose() {
           </router-link>
           <router-link to="/browse" class="nav-item" active-class="active">
             <span class="nav-icon">🔍</span>
-            <span class="nav-text">浏览</span>
+            <span class="nav-text">抢课</span>
           </router-link>
           <router-link to="/selected-courses" class="nav-item" active-class="active">
             <span class="nav-icon">📋</span>

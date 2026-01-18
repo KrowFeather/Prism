@@ -83,7 +83,7 @@
           </div>
           <div class="about-item">
             <span class="about-label">版本：</span>
-            <span class="about-value">1.0.0</span>
+            <span class="about-value">1.0.0b</span>
           </div>
           <div class="about-item">
             <span class="about-label">作者：</span>
@@ -91,7 +91,7 @@
           </div>
           <div class="about-item">
             <span class="about-label">描述：</span>
-            <span class="about-value">一款基于 Electron 的智能选课助手</span>
+            <span class="about-value">YNU智能选课抢课助手</span>
           </div>
         </div>
 

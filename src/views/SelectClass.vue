@@ -94,7 +94,7 @@
               size="small"
               @click="handleAddToQueue(scope.row)"
             >
-              加入抢课列表
+              加入抢课
             </el-button>
           </template>
         </el-table-column>
