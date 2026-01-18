@@ -131,7 +131,7 @@ import axios from 'axios'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Monitor, Delete, VideoPlay, VideoPause } from '@element-plus/icons-vue'
-import { courseQueue, removeFromQueue, clearQueue, initQueue, type QueuedCourse } from '../composables/useCourseQueue'
+import { courseQueue, removeFromQueue, clearQueue, initQueue } from '../composables/useCourseQueue'
 
 const router = useRouter()
 
@@ -219,11 +219,6 @@ function isCourseSelected(teachingClassId: string): boolean {
   })
 }
 
-// 计算是否有已选课程
-const hasSelectedCourses = computed(() => {
-  return courseQueue.value.some(course => isCourseSelected(course.teachingClassId))
-})
-
 // 计算是否有可抢课的课程（未选且未在运行中）
 const hasAvailableCourses = computed(() => {
   return courseQueue.value.some(course => {
@@ -241,11 +236,8 @@ const hasAvailableCourses = computed(() => {
 })
 
 const isSelectingAll = ref(false)
-const selectingCourseId = ref('')
 const isStartingGrab = ref(false)
 const isStoppingGrab = ref(false)
-const startingTaskId = ref('')
-const stoppingTaskId = ref('')
 const grabTasks = ref<Record<string, any>>({})
 const taskStatusInterval = ref<number | null>(null)
 const terminalContentRef = ref<HTMLElement | null>(null)
@@ -277,52 +269,6 @@ function formatTime(timestamp: number): string {
 }
 
 // 立即选课
-async function handleSelectCourse(course: QueuedCourse) {
-  const loginInfo = getLoginInfo()
-  if (!loginInfo) return
-
-  selectingCourseId.value = course.id
-  addLog(`[${course.courseName}] 正在尝试立即选课...`, 'info')
-
-  try {
-    const API_BASE_URL = getApiUrl()
-    const response = await axios.post(`${API_BASE_URL}/select-class`, {
-      username: loginInfo.username,
-      password: loginInfo.password,
-      electiveBatchCode: course.electiveBatchCode,
-      teachingClassId: course.teachingClassId,
-      teachingClassType: course.teachingClassType,
-      campus: course.campus,
-      isMajor: course.isMajor,
-      operationType: '1'
-    })
-
-    if (response.data.success) {
-      ElMessage.success(response.data.message || '选课成功！')
-      addLog(`[${course.courseName}] ✅ 立即选课成功！`, 'success')
-      // 从列表中移除
-      removeFromQueue(course.id)
-    } else {
-      const errorMsg = response.data.message || '选课失败'
-      ElMessage.error(errorMsg)
-      addLog(`[${course.courseName}] ❌ ${errorMsg}`, 'error')
-    }
-  } catch (error: any) {
-    let errorMsg = '选课失败，请重试'
-    if (error.response) {
-      errorMsg = error.response.data?.message || errorMsg
-    } else if (error.request) {
-      errorMsg = '无法连接到服务器，请确保服务正在运行'
-    } else {
-      errorMsg = error.message || errorMsg
-    }
-    ElMessage.error(errorMsg)
-    addLog(`[${course.courseName}] ❌ ${errorMsg}`, 'error')
-  } finally {
-    selectingCourseId.value = ''
-  }
-}
-
 // 删除单个课程
 function handleRemove(id: string) {
   removeFromQueue(id)
@@ -339,141 +285,6 @@ async function handleClearAll() {
     clearQueue()
   } catch {
     // 用户取消
-  }
-}
-
-// 启动单个课程的轮询抢课
-async function handleStartGrabCourse(course: QueuedCourse) {
-  const loginInfo = getLoginInfo()
-  if (!loginInfo) return
-
-  // 先刷新已选课程列表，确保状态是最新的
-  await loadSelectedCourses()
-
-  // 检查该课程是否已经在已选课程列表中（使用最新数据）
-  if (isCourseSelected(course.teachingClassId)) {
-    ElMessage.warning('该课程已在已选课程中，无需抢课')
-    addLog(`[${course.courseName}] ⏭️ 该课程已在已选课程中，跳过`, 'info')
-    return
-  }
-
-  // 检查该课程是否已经有运行中的任务（不检查success状态，因为可能已退课）
-  const existingTask = findTaskByTeachingClassId(course.teachingClassId)
-  if (existingTask && existingTask.status === 'running') {
-    ElMessage.warning('该课程正在抢课中，请勿重复启动')
-    addLog(`[${course.courseName}] ⏭️ 该课程正在抢课中，跳过`, 'info')
-    return
-  }
-
-  // 如果存在已停止的任务，先清除旧任务状态
-  if (existingTask && existingTask.status === 'stopped') {
-    // 清除旧任务状态，以便显示新任务状态
-    const taskId = existingTask.task_id
-    if (grabTasks.value[taskId]) {
-      delete grabTasks.value[taskId]
-    }
-  }
-
-  startingTaskId.value = course.teachingClassId
-  addLog(`[${course.courseName}] 正在启动抢课任务...`, 'info')
-
-  try {
-    const API_BASE_URL = getApiUrl()
-    
-    // 读取邮件配置
-    const emailEnabled = localStorage.getItem('emailEnabled') === 'true'
-    const emailUser = localStorage.getItem('emailUser') || ''
-    const emailAuth = localStorage.getItem('emailAuth') || ''
-    
-    const requestData: any = {
-      username: loginInfo.username,
-      password: loginInfo.password,
-      electiveBatchCode: course.electiveBatchCode,
-      teachingClassId: course.teachingClassId,
-      teachingClassType: course.teachingClassType,
-      campus: course.campus || '02',
-      isMajor: course.isMajor || '1',
-      selectRate: 2  // 每2秒请求一次
-    }
-    
-    // 如果启用了邮件提醒，添加邮件配置
-    if (emailEnabled && emailUser && emailAuth) {
-      requestData.emailUser = emailUser
-      requestData.emailAuth = emailAuth
-      requestData.emailMsg = `课程 ${course.courseName} 选课成功！`
-    }
-    
-    const response = await axios.post(`${API_BASE_URL}/start-grab-course`, requestData)
-
-    if (response.data.success) {
-      ElMessage.success(`课程 ${course.courseName} 的抢课任务已启动`)
-      addLog(`[${course.courseName}] ✅ 抢课任务已启动，开始轮询选课`, 'success')
-      // 开始轮询任务状态
-      startTaskStatusPolling()
-    } else {
-      const errorMsg = response.data.message || '启动抢课任务失败'
-      ElMessage.error(errorMsg)
-      addLog(`[${course.courseName}] ❌ ${errorMsg}`, 'error')
-    }
-  } catch (error: any) {
-    let errorMsg = '启动抢课任务失败，请重试'
-    if (error.response) {
-      errorMsg = error.response.data?.message || errorMsg
-    } else if (error.request) {
-      errorMsg = '无法连接到服务器，请确保服务正在运行'
-    } else {
-      errorMsg = error.message || errorMsg
-    }
-    ElMessage.error(errorMsg)
-    addLog(`[${course.courseName}] ❌ ${errorMsg}`, 'error')
-  } finally {
-    startingTaskId.value = ''
-  }
-}
-
-// 停止单个课程的轮询抢课
-async function handleStopGrabCourse(course: QueuedCourse) {
-  const task = findTaskByTeachingClassId(course.teachingClassId)
-  if (!task) {
-    ElMessage.warning('未找到对应的抢课任务')
-    addLog(`[${course.courseName}] ⚠️ 未找到对应的抢课任务`, 'warning')
-    return
-  }
-
-  stoppingTaskId.value = course.teachingClassId
-  addLog(`[${course.courseName}] 正在停止抢课任务...`, 'info')
-
-  try {
-    const API_BASE_URL = getApiUrl()
-    const response = await axios.post(`${API_BASE_URL}/stop-grab-course`, {
-      task_id: task.task_id
-    })
-
-    if (response.data.success) {
-      ElMessage.success(`课程 ${course.courseName} 的抢课任务已停止`)
-      addLog(`[${course.courseName}] ⏸️ 抢课任务已停止 (共尝试 ${task.count} 次)`, 'warning')
-      // 更新本地状态
-      if (grabTasks.value[task.task_id]) {
-        grabTasks.value[task.task_id].status = 'stopped'
-      }
-    } else {
-      const errorMsg = response.data.message || '停止抢课任务失败'
-      ElMessage.error(errorMsg)
-      addLog(`[${course.courseName}] ❌ ${errorMsg}`, 'error')
-    }
-  } catch (error: any) {
-    let errorMsg = '停止抢课任务失败，请重试'
-    if (error.response) {
-      errorMsg = error.response.data?.message || errorMsg
-    } else if (error.request) {
-      errorMsg = '无法连接到服务器，请确保服务正在运行'
-    } else {
-      errorMsg = error.message || errorMsg
-    }
-    ElMessage.error(errorMsg)
-    addLog(`[${course.courseName}] ❌ ${errorMsg}`, 'error')
-  } finally {
-    stoppingTaskId.value = ''
   }
 }
 
@@ -827,11 +638,6 @@ function findTaskByTeachingClassId(teachingClassId: string) {
   return null
 }
 
-// 获取任务状态
-function getTaskStatus(teachingClassId: string): string {
-  const task = findTaskByTeachingClassId(teachingClassId)
-  return task ? task.status : ''
-}
 
 // 计算是否有运行中的任务
 const hasRunningTasks = computed(() => {

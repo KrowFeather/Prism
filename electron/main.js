@@ -22,9 +22,16 @@ const createWindow = () => {
             devTools: true
         }
     });
-    win.loadURL("http://localhost:3000");
-    // 开发模式下自动打开开发者工具
-    if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+    // 根据环境加载不同的内容
+    if (app.isPackaged) {
+        // 生产环境：加载打包后的文件
+        // electron-builder 会将 dist 文件夹打包到应用根目录
+        // __dirname 在打包后指向 resources/app/electron，所以需要上一级目录
+        win.loadFile(path.join(__dirname, '../dist/index.html'));
+    } else {
+        // 开发环境：加载开发服务器
+        win.loadURL("http://localhost:3000");
+        // 开发模式下自动打开开发者工具
         win.webContents.openDevTools();
     }
 

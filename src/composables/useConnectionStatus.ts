@@ -1,4 +1,4 @@
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
@@ -59,8 +59,8 @@ export function setupAxiosInterceptors() {
       // 如果有登录信息，添加 token（如果需要）
       const loginInfo = localStorage.getItem('loginInfo')
       if (loginInfo) {
-        const loginData = JSON.parse(loginInfo)
         // 如果后端需要 token，可以在这里添加
+        // const loginData = JSON.parse(loginInfo)
         // config.headers.Authorization = `Bearer ${loginData.token}`
       }
       return config

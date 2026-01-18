@@ -9,7 +9,12 @@ lerna-debug.log*
 
 node_modules
 dist
-dist_electron
+dist-electron
+Hexagon-spyder/dist
+Hexagon-spyder/build
+Hexagon-spyder/__pycache__
+Hexagon-spyder/main.spec
+
 dist-ssr
 *.local
 
