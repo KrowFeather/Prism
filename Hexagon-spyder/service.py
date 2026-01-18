@@ -239,6 +239,81 @@ def drop_class(username: str, password: str, elective_batch_code: str, teaching_
         return None, f"退课请求出错: {str(e)}"
 
 
+def get_selected_courses(username: str, elective_batch_code: str, password: str = ""):
+    """获取用户已选课程"""
+    # 检查会话是否存在，如果不存在则先登录
+    if username not in user_sessions:
+        if not password:
+            return None, "用户未登录，请先登录"
+        token, WEU, JSESSIONID = login(username, password)
+        if token is None:
+            return None, "登录失败，请检查用户名和密码"
+    
+    # 获取会话信息
+    session = user_sessions[username]
+    token = session["token"]
+    WEU = session["WEU"]
+    JSESSIONID = session["JSESSIONID"]
+    
+    # 构建URL
+    timestamp = int(time.time() * 1000)
+    url = f"https://xk.ynu.edu.cn/xsxkapp/sys/xsxkapp/elective/courseResult.do?timestamp={timestamp}&studentCode={username}&electiveBatchCode={elective_batch_code}"
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Accept-Language": "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2",
+        "token": token,
+        "X-Requested-With": "XMLHttpRequest",
+        "Priority": "u=0",
+        "Referer": "https://xk.ynu.edu.cn/xsxkapp/sys/xsxkapp/*default/index.do",
+        "Host": "xk.ynu.edu.cn"
+    }
+    cookies = {
+        "_WEU": WEU,
+        "JSESSIONID": JSESSIONID
+    }
+    
+    try:
+        response = requests.get(
+            url,
+            headers=headers,
+            cookies=cookies,
+        )
+        
+        if response.status_code != 200:
+            return None, f"请求失败，状态码: {response.status_code}"
+        
+        result = response.json()
+        code = str(result.get('code', ''))
+        
+        if code == "1":  # 成功
+            return result, "获取成功"
+        elif code == "302":  # token过期,重新登录
+            # 清除会话，下次重新登录
+            if username in user_sessions:
+                del user_sessions[username]
+            # 如果提供了密码，尝试重新登录
+            if password:
+                token, WEU, JSESSIONID = login(username, password)
+                if token:
+                    # 重新请求
+                    session = user_sessions[username]
+                    headers["token"] = session["token"]
+                    cookies["_WEU"] = session["WEU"]
+                    cookies["JSESSIONID"] = session["JSESSIONID"]
+                    response = requests.get(url, headers=headers, cookies=cookies)
+                    if response.status_code == 200:
+                        result = response.json()
+                        if str(result.get('code', '')) == "1":
+                            return result, "获取成功"
+            return None, "登录已过期，请重新登录"
+        else:
+            return None, result.get('msg', '获取已选课程失败')
+    except Exception as e:
+        return None, f"获取已选课程出错: {str(e)}"
+
+
 def get_courses(username: str, elective_batch_code: str, password: str = "", is_major: str = "1", campus: str = "02", teaching_class_type: str = "XGXK", query_content: str = "", check_conflict: str = "2", check_capacity: str = "2"):
     data = {
         "data": {
@@ -538,6 +613,15 @@ def start_grab_course(username: str, password: str, elective_batch_code: str,
     """启动轮询抢课任务"""
     global grab_tasks
     
+    # 检查是否已有该课程的成功任务（但允许重新启动，因为可能已经退课了）
+    # 只检查是否有正在运行的任务，如果有则不允许重复启动
+    with task_lock:
+        for task_id, task_info in grab_tasks.items():
+            if (task_info.get("username") == username and 
+                task_info.get("teaching_class_id") == teaching_class_id and
+                task_info.get("status") == "running"):
+                return None  # 已有运行中的任务，不启动新任务
+    
     # 生成任务ID
     task_id = f"{username}_{teaching_class_id}_{int(time.time())}"
     
@@ -569,7 +653,7 @@ def start_grab_course(username: str, password: str, elective_batch_code: str,
 
 def stop_grab_course(task_id: str):
     """停止轮询抢课任务"""
-    global grab_tasks
+    global grab_tasks   
     
     with task_lock:
         if task_id in grab_tasks:
@@ -614,9 +698,3 @@ def get_all_grab_tasks():
             }
             for task_id, task in grab_tasks.items()
         }
-
-if __name__ == "__main__":
-    user_name = "20221120044"
-    password = "jommybroiler233?"
-    print(login(user_name, password))
-    print(get_batches(user_name, password))

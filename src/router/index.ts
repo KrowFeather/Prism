@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import SelectClass from '../views/SelectClass.vue'
 import Browse from '../views/Browse.vue'
 import Settings from '../views/Settings.vue'
+import SelectedCourses from '../views/SelectedCourses.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -21,6 +22,12 @@ const router = createRouter({
       path: '/browse',
       name: 'Browse',
       component: Browse,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/selected-courses',
+      name: 'SelectedCourses',
+      component: SelectedCourses,
       meta: { requiresAuth: true }
     },
     {

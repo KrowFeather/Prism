@@ -28,6 +28,38 @@
         </el-form>
 
         <el-divider content-position="left">
+          <h3 class="section-title">邮件提醒</h3>
+        </el-divider>
+        <el-form>
+          <el-form-item label="启用邮件提醒">
+            <el-switch
+              v-model="emailEnabled"
+              active-text="开启"
+              inactive-text="关闭"
+            />
+          </el-form-item>
+          <el-form-item v-if="emailEnabled" label="发件邮箱">
+            <el-input
+              v-model="emailUser"
+              placeholder="your-email@example.com"
+              clearable
+            />
+          </el-form-item>
+          <el-form-item v-if="emailEnabled" label="邮箱授权码">
+            <el-input
+              v-model="emailAuth"
+              type="password"
+              placeholder="请输入邮箱授权码"
+              show-password
+              clearable
+            />
+          </el-form-item>
+          <el-form-item v-if="emailEnabled">
+            <el-button type="primary" @click="saveEmailSettings">保存邮件设置</el-button>
+          </el-form-item>
+        </el-form>
+
+        <el-divider content-position="left">
           <h3 class="section-title">外观设置</h3>
         </el-divider>
         <el-form>
@@ -40,6 +72,28 @@
             />
           </el-form-item>
         </el-form>
+
+        <el-divider content-position="left">
+          <h3 class="section-title">关于</h3>
+        </el-divider>
+        <div class="about-section">
+          <div class="about-item">
+            <span class="about-label">应用名称：</span>
+            <span class="about-value">Prism</span>
+          </div>
+          <div class="about-item">
+            <span class="about-label">版本：</span>
+            <span class="about-value">1.0.0</span>
+          </div>
+          <div class="about-item">
+            <span class="about-label">作者：</span>
+            <span class="about-value">KrowFeather</span>
+          </div>
+          <div class="about-item">
+            <span class="about-label">描述：</span>
+            <span class="about-value">一款基于 Electron 的智能选课助手</span>
+          </div>
+        </div>
 
         <el-divider content-position="left">
           <h3 class="section-title">操作</h3>
@@ -60,6 +114,9 @@ import { isDarkMode, setTheme } from '../composables/useTheme'
 const router = useRouter()
 const loginInfo = ref<any>(null)
 const apiUrl = ref('http://localhost:5000')
+const emailEnabled = ref(false)
+const emailUser = ref('')
+const emailAuth = ref('')
 
 onMounted(() => {
   const stored = localStorage.getItem('loginInfo')
@@ -72,13 +129,37 @@ onMounted(() => {
     apiUrl.value = storedApiUrl
   }
   
+  // 加载邮件设置
+  const storedEmailEnabled = localStorage.getItem('emailEnabled')
+  if (storedEmailEnabled !== null) {
+    emailEnabled.value = storedEmailEnabled === 'true'
+  }
+  
+  const storedEmailUser = localStorage.getItem('emailUser')
+  if (storedEmailUser) {
+    emailUser.value = storedEmailUser
+  }
+  
+  const storedEmailAuth = localStorage.getItem('emailAuth')
+  if (storedEmailAuth) {
+    emailAuth.value = storedEmailAuth
+  }
+  
   // 初始化暗色模式状态（从 useTheme 中读取）
   // isDarkMode 是响应式的，会自动同步
 })
 
 function saveSettings() {
   localStorage.setItem('apiUrl', apiUrl.value)
-  ElMessage.success('设置已保存')
+  // 同时保存邮件设置
+  saveEmailSettings()
+}
+
+function saveEmailSettings() {
+  localStorage.setItem('emailEnabled', String(emailEnabled.value))
+  localStorage.setItem('emailUser', emailUser.value)
+  localStorage.setItem('emailAuth', emailAuth.value)
+  ElMessage.success('邮件设置已保存')
 }
 
 function handleThemeChange(value: boolean) {
@@ -150,6 +231,32 @@ async function handleLogout() {
   font-weight: 500;
 }
 
+.about-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px 0;
+}
+
+.about-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.about-label {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+  min-width: 80px;
+}
+
+.about-value {
+  font-size: 14px;
+  color: #1e293b;
+  font-weight: 400;
+}
+
 </style>
 
 <style>
@@ -172,6 +279,14 @@ async function handleLogout() {
 
 .dark-theme .info-label {
   color: #d0d0d0 !important;
+}
+
+.dark-theme .about-label {
+  color: #d0d0d0 !important;
+}
+
+.dark-theme .about-value {
+  color: #e0e0e0 !important;
 }
 </style>
 

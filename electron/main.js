@@ -7,6 +7,7 @@ const createWindow = () => {
         height: 650,
         frame: false,
         titleBarStyle: 'hidden',
+        title: 'Prism',
         autoHideMenuBar: true,
         movable: true,
         resizable: true,

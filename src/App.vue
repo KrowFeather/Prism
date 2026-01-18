@@ -2,6 +2,9 @@
 import { computed, onMounted, onUnmounted, watch, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { connectionStatus, initConnectionStatus } from './composables/useConnectionStatus'
+import axios from 'axios'
+import { ElMessage } from 'element-plus'
+import { Refresh } from '@element-plus/icons-vue'
 
 declare global {
   interface Window {
@@ -60,6 +63,93 @@ watch(isLoggedIn, (newVal) => {
 })
 
 const isMaximized = ref(false)
+const isRelogging = ref(false)
+
+// 检查是否有登录信息
+const hasLoginInfo = computed(() => {
+  const loginInfo = localStorage.getItem('loginInfo')
+  if (!loginInfo) return false
+  try {
+    const info = JSON.parse(loginInfo)
+    return !!(info.username && info.password)
+  } catch {
+    return false
+  }
+})
+
+// 获取 API URL
+function getApiUrl() {
+  const stored = localStorage.getItem('apiUrl')
+  return stored || 'http://localhost:5000'
+}
+
+// 强制重新登录
+async function handleRelogin() {
+  if (isRelogging.value) return
+  
+  const loginInfo = localStorage.getItem('loginInfo')
+  if (!loginInfo) {
+    ElMessage.warning('未找到登录信息，请先登录')
+    return
+  }
+  
+  let username: string, password: string
+  try {
+    const info = JSON.parse(loginInfo)
+    username = info.username
+    password = info.password
+    if (!username || !password) {
+      ElMessage.warning('登录信息不完整，请重新登录')
+      return
+    }
+  } catch {
+    ElMessage.error('登录信息格式错误，请重新登录')
+    return
+  }
+  
+  isRelogging.value = true
+  connectionStatus.value = 'reconnecting'
+  
+  try {
+    const API_BASE_URL = getApiUrl()
+    const response = await axios.post(`${API_BASE_URL}/login`, {
+      username: username,
+      password: password
+    })
+    
+    if (response.data.success) {
+      // 更新登录信息
+      const newLoginInfo = {
+        username: username,
+        password: password,
+        token: response.data.token,
+        WEU: response.data.WEU,
+        JSESSIONID: response.data.JSESSIONID
+      }
+      localStorage.setItem('loginInfo', JSON.stringify(newLoginInfo))
+      
+      // 更新连接状态
+      connectionStatus.value = 'connected'
+      ElMessage.success('重新登录成功')
+    } else {
+      connectionStatus.value = 'disconnected'
+      ElMessage.error(response.data.message || '重新登录失败')
+    }
+  } catch (error: any) {
+    connectionStatus.value = 'disconnected'
+    let errorMsg = '重新登录失败，请重试'
+    if (error.response) {
+      errorMsg = error.response.data?.message || errorMsg
+    } else if (error.request) {
+      errorMsg = '无法连接到服务器，请确保服务正在运行'
+    } else {
+      errorMsg = error.message || errorMsg
+    }
+    ElMessage.error(errorMsg)
+  } finally {
+    isRelogging.value = false
+  }
+}
 
 // 清除登录状态
 function clearLoginState() {
@@ -184,7 +274,7 @@ function onClose() {
       <div v-if="isLoginPage" class="login-wrapper">
         <router-view />
       </div>
-      
+
       <!-- 主页面（已登录） -->
       <div v-else class="main-layout">
         <nav class="sidebar">
@@ -196,6 +286,10 @@ function onClose() {
             <span class="nav-icon">🔍</span>
             <span class="nav-text">浏览</span>
           </router-link>
+          <router-link to="/selected-courses" class="nav-item" active-class="active">
+            <span class="nav-icon">📋</span>
+            <span class="nav-text">已选课程</span>
+          </router-link>
           <router-link to="/settings" class="nav-item" active-class="active">
             <span class="nav-icon">⚙️</span>
             <span class="nav-text">设置</span>
@@ -203,6 +297,19 @@ function onClose() {
           <div class="status" :class="statusClass">
             <span class="status-dot"></span>
             <span class="status-text">Status: {{ statusText }}</span>
+          </div>
+          <div class="relogin-section">
+            <el-button
+              type="warning"
+              size="small"
+              :loading="isRelogging"
+              @click="handleRelogin"
+              :disabled="!hasLoginInfo"
+              style="width: 100%"
+            >
+              <el-icon v-if="!isRelogging"><Refresh /></el-icon>
+              {{ isRelogging ? '重新登录中...' : '强制重新登录' }}
+            </el-button>
           </div>
         </nav>
         <main class="main-view">
@@ -513,6 +620,11 @@ function onClose() {
   border-top: 1px solid rgba(200, 215, 235, 0.3);
 }
 
+.relogin-section {
+  padding: 12px 20px;
+  border-top: 1px solid rgba(200, 215, 235, 0.3);
+}
+
 .status-dot {
   width: 8px;
   height: 8px;
@@ -631,6 +743,10 @@ function onClose() {
 .dark-theme .status {
   border-top: 1px solid #1a1a1a;
   color: #d0d0d0 !important;
+}
+
+.dark-theme .relogin-section {
+  border-top: 1px solid #1a1a1a;
 }
 
 .dark-theme .login-card {

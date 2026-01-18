@@ -16,7 +16,7 @@
               type="primary"
               :loading="isStartingGrab"
               @click="handleStartGrabAll"
-              :disabled="isStartingGrab || hasRunningTasks"
+              :disabled="isStartingGrab || hasRunningTasks || !hasAvailableCourses"
             >
               {{ isStartingGrab ? '启动中...' : '开始轮询抢课' }}
             </el-button>
@@ -39,6 +39,16 @@
         </div>
 
         <el-table :data="courseQueue" stripe style="width: 100%" v-loading="isSelectingAll">
+          <el-table-column label="状态" width="120">
+            <template #default="scope">
+              <el-tag v-if="isCourseSelected(scope.row.teachingClassId)" type="success" size="small">
+                已选课
+              </el-tag>
+              <el-tag v-else type="info" size="small">
+                待抢课
+              </el-tag>
+            </template>
+          </el-table-column>
           <el-table-column prop="courseName" label="课程名称" min-width="200" />
           <el-table-column prop="teacherName" label="教师" width="120" />
           <el-table-column prop="teachingClassId" label="教学班ID" width="250" />
@@ -58,19 +68,6 @@
           <el-table-column label="添加时间" width="180">
             <template #default="scope">
               {{ formatTime(scope.row.addedAt) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="120">
-            <template #default="scope">
-              <el-tag v-if="getTaskStatus(scope.row.teachingClassId) === 'running'" type="warning" size="small">
-                抢课中
-              </el-tag>
-              <el-tag v-else-if="getTaskStatus(scope.row.teachingClassId) === 'success'" type="success" size="small">
-                已成功
-              </el-tag>
-              <el-tag v-else-if="getTaskStatus(scope.row.teachingClassId) === 'stopped'" type="info" size="small">
-                已停止
-              </el-tag>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="100" fixed="right">
@@ -143,6 +140,106 @@ const getApiUrl = () => {
   return localStorage.getItem('apiUrl') || 'http://localhost:5000'
 }
 
+// 获取登录信息（如果已存在则复用）
+function getLoginInfo() {
+  const loginInfo = localStorage.getItem('loginInfo')
+  if (!loginInfo) {
+    router.push('/')
+    return null
+  }
+  return JSON.parse(loginInfo)
+}
+
+// 获取选课批次代码
+function getSelectedBatchCode() {
+  return localStorage.getItem('selectedBatchCode') || ''
+}
+
+// 加载已选课程列表
+async function loadSelectedCourses() {
+  const loginInfo = getLoginInfo()
+  if (!loginInfo) return
+
+  const selectedBatchCode = getSelectedBatchCode()
+  if (!selectedBatchCode) {
+    return
+  }
+
+  try {
+    const API_BASE_URL = getApiUrl()
+    const response = await axios.post(`${API_BASE_URL}/get-selected-courses`, {
+      username: loginInfo.username,
+      password: loginInfo.password,
+      electiveBatchCode: selectedBatchCode
+    })
+
+    if (response.data.success) {
+      const data = response.data.data || response.data
+      let courses: any[] = []
+      
+      if (Array.isArray(data)) {
+        courses = data
+      } else if (data && data.result && Array.isArray(data.result)) {
+        courses = data.result
+      } else if (data && data.data && Array.isArray(data.data)) {
+        courses = data.data
+      }
+      
+      // 如果返回的数据是嵌套结构，需要展开
+      if (courses.length > 0 && courses[0].tcList) {
+        const expandedCourses: any[] = []
+        courses.forEach((course: any) => {
+          if (course.tcList && Array.isArray(course.tcList)) {
+            course.tcList.forEach((tc: any) => {
+              expandedCourses.push({
+                ...tc,
+                courseName: course.courseName || tc.courseName,
+                teachingClassId: tc.teachingClassID || tc.teachingClassId
+              })
+            })
+          } else {
+            expandedCourses.push(course)
+          }
+        })
+        courses = expandedCourses
+      }
+      
+      selectedCourses.value = courses
+    }
+  } catch (error) {
+    console.error('加载已选课程失败:', error)
+  }
+}
+
+// 检查课程是否已选
+function isCourseSelected(teachingClassId: string): boolean {
+  return selectedCourses.value.some((course: any) => {
+    const courseId = course.teachingClassID || course.teachingClassId
+    return courseId === teachingClassId
+  })
+}
+
+// 计算是否有已选课程
+const hasSelectedCourses = computed(() => {
+  return courseQueue.value.some(course => isCourseSelected(course.teachingClassId))
+})
+
+// 计算是否有可抢课的课程（未选且未在运行中）
+const hasAvailableCourses = computed(() => {
+  return courseQueue.value.some(course => {
+    // 检查是否已选
+    if (isCourseSelected(course.teachingClassId)) {
+      return false
+    }
+    // 检查是否有运行中的任务
+    const task = findTaskByTeachingClassId(course.teachingClassId)
+    if (task && task.status === 'running') {
+      return false
+    }
+    return true
+  })
+})
+
 const isSelectingAll = ref(false)
 const selectingCourseId = ref('')
 const isStartingGrab = ref(false)
@@ -155,6 +252,7 @@ const terminalContentRef = ref<HTMLElement | null>(null)
 const autoScroll = ref(true)
 const logs = ref<Array<{ time: string; message: string; type: 'info' | 'success' | 'warning' | 'error' }>>([])
 const MAX_LOGS = 500  // 最多保留500条日志
+const selectedCourses = ref<any[]>([])  // 已选课程列表
 
 // 获取课程类型名称
 function getCourseTypeName(type: string): string {
@@ -176,16 +274,6 @@ function formatTime(timestamp: number): string {
     minute: '2-digit',
     second: '2-digit'
   })
-}
-
-// 从 localStorage 获取登录信息
-const getLoginInfo = () => {
-  const loginInfo = localStorage.getItem('loginInfo')
-  if (!loginInfo) {
-    router.push('/')
-    return null
-  }
-  return JSON.parse(loginInfo)
 }
 
 // 立即选课
@@ -259,12 +347,45 @@ async function handleStartGrabCourse(course: QueuedCourse) {
   const loginInfo = getLoginInfo()
   if (!loginInfo) return
 
+  // 先刷新已选课程列表，确保状态是最新的
+  await loadSelectedCourses()
+
+  // 检查该课程是否已经在已选课程列表中（使用最新数据）
+  if (isCourseSelected(course.teachingClassId)) {
+    ElMessage.warning('该课程已在已选课程中，无需抢课')
+    addLog(`[${course.courseName}] ⏭️ 该课程已在已选课程中，跳过`, 'info')
+    return
+  }
+
+  // 检查该课程是否已经有运行中的任务（不检查success状态，因为可能已退课）
+  const existingTask = findTaskByTeachingClassId(course.teachingClassId)
+  if (existingTask && existingTask.status === 'running') {
+    ElMessage.warning('该课程正在抢课中，请勿重复启动')
+    addLog(`[${course.courseName}] ⏭️ 该课程正在抢课中，跳过`, 'info')
+    return
+  }
+
+  // 如果存在已停止的任务，先清除旧任务状态
+  if (existingTask && existingTask.status === 'stopped') {
+    // 清除旧任务状态，以便显示新任务状态
+    const taskId = existingTask.task_id
+    if (grabTasks.value[taskId]) {
+      delete grabTasks.value[taskId]
+    }
+  }
+
   startingTaskId.value = course.teachingClassId
   addLog(`[${course.courseName}] 正在启动抢课任务...`, 'info')
 
   try {
     const API_BASE_URL = getApiUrl()
-    const response = await axios.post(`${API_BASE_URL}/start-grab-course`, {
+    
+    // 读取邮件配置
+    const emailEnabled = localStorage.getItem('emailEnabled') === 'true'
+    const emailUser = localStorage.getItem('emailUser') || ''
+    const emailAuth = localStorage.getItem('emailAuth') || ''
+    
+    const requestData: any = {
       username: loginInfo.username,
       password: loginInfo.password,
       electiveBatchCode: course.electiveBatchCode,
@@ -273,7 +394,16 @@ async function handleStartGrabCourse(course: QueuedCourse) {
       campus: course.campus || '02',
       isMajor: course.isMajor || '1',
       selectRate: 2  // 每2秒请求一次
-    })
+    }
+    
+    // 如果启用了邮件提醒，添加邮件配置
+    if (emailEnabled && emailUser && emailAuth) {
+      requestData.emailUser = emailUser
+      requestData.emailAuth = emailAuth
+      requestData.emailMsg = `课程 ${course.courseName} 选课成功！`
+    }
+    
+    const response = await axios.post(`${API_BASE_URL}/start-grab-course`, requestData)
 
     if (response.data.success) {
       ElMessage.success(`课程 ${course.courseName} 的抢课任务已启动`)
@@ -372,13 +502,45 @@ async function handleStartGrabAll() {
   }
 
   isStartingGrab.value = true
+  
+  // 先刷新已选课程列表，确保状态是最新的
+  await loadSelectedCourses()
+  
   const API_BASE_URL = getApiUrl()
   let successCount = 0
   let failCount = 0
 
   for (const course of courseQueue.value) {
     try {
-      const response = await axios.post(`${API_BASE_URL}/start-grab-course`, {
+      // 检查该课程是否已经在已选课程列表中（使用最新数据）
+      if (isCourseSelected(course.teachingClassId)) {
+        addLog(`[${course.courseName}] ⏭️ 该课程已在已选课程中，跳过`, 'info')
+        continue
+      }
+      
+      // 检查该课程是否已经有运行中的任务（不检查success状态，因为可能已退课）
+      const existingTask = findTaskByTeachingClassId(course.teachingClassId)
+      if (existingTask && existingTask.status === 'running') {
+        // 正在运行中，跳过
+        addLog(`[${course.courseName}] ⏭️ 该课程正在抢课中，跳过`, 'info')
+        continue
+      }
+      
+      // 如果存在已停止或已成功的任务，先清除旧任务状态（允许重新启动）
+      if (existingTask && (existingTask.status === 'stopped' || existingTask.status === 'success')) {
+        // 清除旧任务状态，以便显示新任务状态
+        const taskId = existingTask.task_id
+        if (grabTasks.value[taskId]) {
+          delete grabTasks.value[taskId]
+        }
+      }
+      
+      // 读取邮件配置
+      const emailEnabled = localStorage.getItem('emailEnabled') === 'true'
+      const emailUser = localStorage.getItem('emailUser') || ''
+      const emailAuth = localStorage.getItem('emailAuth') || ''
+      
+      const requestData: any = {
         username: loginInfo.username,
         password: loginInfo.password,
         electiveBatchCode: course.electiveBatchCode,
@@ -387,7 +549,16 @@ async function handleStartGrabAll() {
         campus: course.campus || '02',
         isMajor: course.isMajor || '1',
         selectRate: 2
-      })
+      }
+      
+      // 如果启用了邮件提醒，添加邮件配置
+      if (emailEnabled && emailUser && emailAuth) {
+        requestData.emailUser = emailUser
+        requestData.emailAuth = emailAuth
+        requestData.emailMsg = `课程 ${course.courseName} 选课成功！`
+      }
+      
+      const response = await axios.post(`${API_BASE_URL}/start-grab-course`, requestData)
 
       if (response.data.success) {
         successCount++
@@ -545,8 +716,13 @@ async function loadTaskStatus() {
             
             if (newTask.status === 'success') {
               addLog(`[${courseName}] ✅ 选课成功！`, 'success')
+              // 选课成功后，立即刷新已选课程列表，更新状态显示
+              loadSelectedCourses()
             } else if (newTask.status === 'stopped') {
               addLog(`[${courseName}] ⏸️ 抢课任务已停止 (尝试次数: ${newTask.count})`, 'warning')
+            } else if (oldTask.status === 'stopped' && newTask.status === 'running') {
+              // 从停止状态重新启动
+              addLog(`[${courseName}] 🔄 抢课任务已重新启动`, 'info')
             }
           }
           
@@ -557,10 +733,12 @@ async function loadTaskStatus() {
             
             // 每次尝试都记录，显示尝试次数和结果
             let resultMsg = ''
+            let isSuccess = false
             if (newTask.last_result) {
               // 根据结果消息判断类型
               if (newTask.last_result.includes('成功') || newTask.last_result.includes('选课成功')) {
                 resultMsg = `✅ ${newTask.last_result}`
+                isSuccess = true
               } else if (newTask.last_result.includes('过期') || newTask.last_result.includes('登录')) {
                 resultMsg = `⚠️ ${newTask.last_result}`
               } else if (newTask.last_result.includes('失败') || newTask.last_result.includes('错误')) {
@@ -577,6 +755,11 @@ async function loadTaskStatus() {
               resultMsg.includes('❌') || resultMsg.includes('失败') ? 'error' :
               resultMsg.includes('⚠️') ? 'warning' : 'info'
             )
+            
+            // 如果检测到选课成功，刷新已选课程列表
+            if (isSuccess) {
+              loadSelectedCourses()
+            }
           }
           
           // 如果任务仍在运行但尝试次数增加了（可能在状态更新之前）
@@ -665,6 +848,7 @@ const hasRunningTasks = computed(() => {
 onMounted(() => {
   initQueue()
   addLog('🚀 抢课系统已启动', 'info')
+  loadSelectedCourses()  // 加载已选课程列表
   loadTaskStatus()
   startTaskStatusPolling()
 })

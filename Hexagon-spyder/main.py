@@ -25,12 +25,13 @@ def api_login():
     password = data['password']
 
     token, WEU, JSESSIONID = None, None, None
-    retry = 3
+    retry = 20
     while retry > 0:
         token, WEU, JSESSIONID = login(username, password)
         if token:
             break
         retry -= 1
+        time.sleep(1)
 
     if token:
         return jsonify({
@@ -233,6 +234,43 @@ def api_get_sys_params():
         })
 
 
+@app.route("/get-selected-courses", methods=["POST"])
+def api_get_selected_courses():
+    """获取用户已选课程接口"""
+    data = request.get_json()
+    
+    if not data or 'username' not in data or 'electiveBatchCode' not in data:
+        return jsonify({
+            "success": False,
+            "message": "请提供用户名和选课批次代码"
+        }), 400
+    
+    username = data['username']
+    password = data.get('password', '')
+    elective_batch_code = data['electiveBatchCode']
+    
+    # 如果用户未登录，需要密码
+    if username not in user_sessions and not password:
+        return jsonify({
+            "success": False,
+            "message": "用户未登录，请提供密码"
+        }), 400
+    
+    result, message = get_selected_courses(username, elective_batch_code, password)
+    
+    if result:
+        return jsonify({
+            "success": True,
+            "message": message,
+            "data": result.get('dataList', [])
+        })
+    else:
+        return jsonify({
+            "success": False,
+            "message": message
+        })
+
+
 @app.route("/get-courses", methods=["POST"])
 def api_get_courses():
     """获取课程列表接口"""
@@ -311,6 +349,12 @@ def api_start_grab_course():
         email_auth=data.get('emailAuth'),
         email_msg=data.get('emailMsg', '选课成功')
     )
+    
+    if task_id is None:
+        return jsonify({
+            "success": False,
+            "message": "该课程已选课成功，无需再次抢课"
+        }), 400
     
     return jsonify({
         "success": True,
